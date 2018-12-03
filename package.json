@@ -1,0 +1,15 @@
+{
+  "name": "videomanipulation",
+  "version": "1.0.0",
+  "description": "Video Concat and Stitching for creating Video Tutorials/Projects",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Antariksh C. <antarikshc@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.16.4",
+    "fluent-ffmpeg": "^2.1.2"
+  }
+}
