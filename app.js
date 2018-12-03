@@ -1,8 +1,7 @@
 var express     = require('express'),
     app         = express(),
     bodyParser  = require('body-parser'),
-    ffmpeg = require('fluent-ffmpeg');
-    
+    ffmpeg      = require('fluent-ffmpeg');    
 
 // Setup body parse to receive json format requests
 app.use(bodyParser.json());
@@ -16,7 +15,7 @@ app.get('/', function(req, res){
     res.send("Welcome to Video Manipulation API!");
 });
 
-app.get('/project/stitch', function(req, res){
+app.get('/project/vidconcat', function(req, res){
 
     ffmpeg('./temp/vid1.mp4')
     .input('./temp/vid2.mp4')
