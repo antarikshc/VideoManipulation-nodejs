@@ -2,6 +2,7 @@ var express = require('express'),
     app = express(),
     bodyParser = require('body-parser'),
     db = require('./models'),
+    fs = require('fs'),
     ffmpeg = require('fluent-ffmpeg'),
     videoshow = require('videoshow');
 
@@ -17,6 +18,33 @@ app.get('/', function (req, res) {
     res.send("Welcome to Video Manipulation API!");
 });
 
+// Route to start Video manipulation service
+app.get('/project/create', function (req, res) {
+
+
+    /**
+     * TODO
+     * 1 - Extract Project ZIP and store in 'projects' dir
+     * 2 - Google Cloud authentication
+     * 3 - Accept request body to remove hardcoding
+     */
+
+    var path = "./projects";
+
+    // Read the directories present in path
+    fs.readdir("./projects", function (err, items) {
+        for (var i = 0; i < items.length; i++) {
+            console.log("Entry " + i + ": " + items[i] + 
+            " | isDirectory: " + fs.lstatSync(path + "/" + items[i]).isDirectory());
+        }
+    });
+
+    res.send("Project create reqeust has been spawned!");
+
+});
+
+
+// Route to test Video Concatenation
 app.get('/project/vidconcat', function (req, res) {
 
     // Currently hardcoding concatenation of two videos
@@ -36,6 +64,7 @@ app.get('/project/vidconcat', function (req, res) {
 
 });
 
+// Route to test Image and Audio merging
 app.get('/project/imgconcat', function (req, res) {
 
     var images, duration, videoOptions;
@@ -98,5 +127,5 @@ app.get('/project/imgconcat', function (req, res) {
 
 // Listen to the default PORT for incoming request
 app.listen(app.get('port'), function () {
-        console.log("Server is running on " + app.get('port'));
-    });
+    console.log("Server is running on " + app.get('port'));
+});
