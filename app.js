@@ -1,6 +1,7 @@
 var express = require('express'),
     app = express(),
     bodyParser = require('body-parser'),
+    db = require('./models'),
     ffmpeg = require('fluent-ffmpeg'),
     videoshow = require('videoshow');
 
