@@ -1,10 +1,11 @@
-var express = require('express'),
-    app = express(),
-    bodyParser = require('body-parser'),
-    db = require('./models'),
-    fs = require('fs'),
-    ffmpeg = require('fluent-ffmpeg'),
-    videoshow = require('videoshow');
+var express     = require('express'),
+    app         = express(),
+    db          = require('./models'),
+    bodyParser  = require('body-parser'),
+    mime        = require('mime-types'),
+    fileSystem  = require('fs'),
+    ffmpeg      = require('fluent-ffmpeg'),
+    videoshow   = require('videoshow');
 
 // Setup body parse to receive json format requests
 app.use(bodyParser.json());
@@ -32,11 +33,24 @@ app.get('/project/create', function (req, res) {
     var path = "./projects";
 
     // Read the directories present in path
-    fs.readdir("./projects", function (err, items) {
-        for (var i = 0; i < items.length; i++) {
-            console.log("Entry " + i + ": " + items[i] + 
-            " | isDirectory: " + fs.lstatSync(path + "/" + items[i]).isDirectory());
-        }
+    fileSystem.readdir("./projects", function (err, items) {
+
+        // Iterate through files, directories will contain media files
+        items.forEach(function (item) {
+            if (fileSystem.lstatSync(path + "/" + item).isDirectory()) {
+
+                // Read the contents of directory and identify file types(mime)
+                fileSystem.readdir("./projects/" + item, function (err, mediaFiles) {
+
+                    mediaFiles.forEach(function(file) {
+                        console.log(mime.lookup(file));
+                    });
+
+                });
+
+            }
+        });
+
     });
 
     res.send("Project create reqeust has been spawned!");
@@ -72,8 +86,9 @@ app.get('/project/imgconcat', function (req, res) {
     // Probe the Audio file to get the File metadata, we need duration for now
     function audioProbe(callback) {
 
-        ffmpeg('./temp/song.mp3')
+        ffmpeg('./temp/image.jpg')
             .ffprobe(function (err, data) {
+                console.log(data);
                 duration = parseInt(data.streams[0].duration);
 
                 // Video options to render the video
@@ -95,7 +110,7 @@ app.get('/project/imgconcat', function (req, res) {
                     loop: duration
                 }]
 
-                callback();
+                //callback();
 
             });
 
