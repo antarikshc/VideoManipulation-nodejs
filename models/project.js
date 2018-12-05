@@ -10,6 +10,8 @@ var projectSchema = new mongoose.Schema({
     slides: {
         order: Number,
         type: Number, // 0 - Video, 1 - Audio/Image
+        fileOne: String,
+        fileTwo: String,
         status: Number // 0 - Under process, 1 - finished processing
     },
     output: String
