@@ -1,11 +1,11 @@
-var express     = require('express'),
-    app         = express(),
-    db          = require('./models'),
-    bodyParser  = require('body-parser'),
-    mime        = require('mime-types'),
-    fileSystem  = require('fs'),
-    ffmpeg      = require('fluent-ffmpeg'),
-    videoshow   = require('videoshow');
+var express = require('express'),
+    app = express(),
+    db = require('./models'),
+    bodyParser = require('body-parser'),
+    mime = require('mime-types'),
+    fileSystem = require('fs'),
+    ffmpeg = require('fluent-ffmpeg'),
+    videoshow = require('videoshow');
 
 // Setup body parse to receive json format requests
 app.use(bodyParser.json());
@@ -30,27 +30,58 @@ app.get('/project/create', function (req, res) {
      * 3 - Accept request body to remove hardcoding
      */
 
-    var path = "./projects";
+    var path = "./projects",
+        slides = [];
 
     // Read the directories present in path
-    fileSystem.readdir("./projects", function (err, items) {
+    fileSystem.readdir(path, function (err, items) {
 
         // Iterate through files, directories will contain media files
-        items.forEach(function (item) {
+        items.forEach(function (item, i) {
             if (fileSystem.lstatSync(path + "/" + item).isDirectory()) {
 
                 // Read the contents of directory and identify file types(mime)
-                fileSystem.readdir("./projects/" + item, function (err, mediaFiles) {
+                fileSystem.readdir(path + "/" + item, function (err, mediaFiles) {
 
-                    mediaFiles.forEach(function(file) {
-                        console.log(mime.lookup(file));
-                    });
+                    // Check the file type of first file
+                    var mimeType = (mime.lookup(mediaFiles[0])).split("/")[0];
+                    var slideData = {
+                        order: i + 1,
+                        status: 0
+                    };
+
+                    // Edit the slide data according to Media file type
+                    if (mimeType === "audio" || mimeType === "image") {
+
+                        slideData.type = 1
+
+                        mediaFiles.forEach(function (file) {
+
+                            mimeType = mime.lookup(file).split("/")[0];
+
+                            if (mimeType === "image") {
+                                slideData.fileOne = path + "/" + item + "/" + file;
+                            }
+                            if (mimeType === "audio") {
+                                slideData.fileTwo = path + "/" + item + "/" + file;
+                            }
+
+                        });
+
+                    } else if (mimeType === "video") {
+
+                        slideData.type = 0
+                        slideData.fileOne = path + "/" + item + "/" + mediaFiles;
+
+                    }
+
+                    // Push it to the slidesData array
+                    slides.push(slideData);
 
                 });
 
             }
         });
-
     });
 
     res.send("Project create reqeust has been spawned!");

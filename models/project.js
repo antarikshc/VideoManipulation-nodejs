@@ -12,7 +12,7 @@ var projectSchema = new mongoose.Schema({
         type: Number, // 0 - Video, 1 - Audio/Image
         fileOne: String,
         fileTwo: String,
-        status: Number // 0 - Under process, 1 - finished processing
+        status: Number // 0 - Not processed, 1 - Finished processing
     },
     output: String
 });
