@@ -42,7 +42,7 @@ app.get('/project/create', function (req, res) {
                 // Iterate through files, directories will contain media files
                 for (i = 0; i < items.length; i++) {
                     if (fileSystem.lstatSync(projectDir + "/" + items[i]).isDirectory()) {
-                        
+
                         readSlideDirectory(project._id, i, items[i], items.length);
 
                     }
@@ -102,17 +102,17 @@ function readSlideDirectory(projectId, i, item, length) {
                     slides: slideData
                 }
             })
-            .then(function (result) {
+            .then(function(result) {
                 console.log("Insert: slide data in project entry");
             })
             .catch(function (err) {
                 console.log(err);
             });
 
-            if (i === length-1) {
-                // Use timeout as I still don't know how to handle async's correctly.
-                setTimeout(mainStitchFunc, 3000);
-            }
+        if (i === length - 1) {
+            // Use timeout as I still don't know how to handle async's correctly.
+            setTimeout(mainStitchFunc, 3000);
+        }
     });
 
 }
@@ -120,8 +120,16 @@ function readSlideDirectory(projectId, i, item, length) {
 function mainStitchFunc(projectId) {
 
     db.Project.findOne(projectId)
-        .then(function (result) {
-            console.log(result);
+        .then(function(result) {
+
+            // Testing concat vids
+            var inputs = [
+                './projects/01/vid1.mp4',
+                './projects/02/vid2.mp4'
+            ]
+
+            concatVideos(inputs);
+
         })
         .catch(function (err) {
             console.log(err);
@@ -129,6 +137,27 @@ function mainStitchFunc(projectId) {
 
 };
 
+function concatVideos(inputs) {
+
+    var ffm = ffmpeg();
+
+    inputs.forEach(function (input) {
+        ffm.addInput(input);
+    });
+
+    ffm
+    .on('start', function (commandLine) {
+        console.log('Spawned FFMPEG with command: ' + commandLine);
+    })
+    .on('error', function (err) {
+        console.log('An error occurred: ' + err.message);
+    })
+    .on('end', function () {
+        console.log('Merging finished !');
+    })
+    .mergeToFile('./temp/concat.mp4', './cache');    // needs a temporary folder as second argument
+
+}
 
 // Route to test Video Concatenation
 app.get('/project/vidconcat', function (req, res) {
