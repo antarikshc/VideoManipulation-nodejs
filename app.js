@@ -80,10 +80,10 @@ function readSlideDirectory(projectId, i, item, length) {
                 mimeType = mime.lookup(file).split("/")[0];
 
                 if (mimeType === "image") {
-                    slideData.fileOne = file;
+                    slideData.imageFile = file;
                 }
                 if (mimeType === "audio") {
-                    slideData.fileTwo = file;
+                    slideData.audioFile = file;
                 }
 
             });
@@ -91,7 +91,7 @@ function readSlideDirectory(projectId, i, item, length) {
         } else if (mimeType === "video") {
 
             slideData.type = 0
-            slideData.fileOne = mediaFiles;
+            slideData.videoFile = mediaFiles;
 
         }
 
@@ -121,14 +121,6 @@ function mainStitchFunc(projectId) {
 
     db.Project.findOne(projectId)
         .then(function(result) {
-
-            // Testing concat vids
-            var inputs = [
-                './projects/01/vid1.mp4',
-                './projects/02/vid2.mp4'
-            ]
-
-            concatVideos(inputs);
 
         })
         .catch(function (err) {
