@@ -5,7 +5,8 @@ var express = require('express'),
     mime = require('mime-types'),
     fileSystem = require('fs'),
     ffmpeg = require('fluent-ffmpeg'),
-    videoshow = require('videoshow');
+    videoshow = require('videoshow'),
+    projectDir = "./projects";
 
 // Setup body parse to receive json format requests
 app.use(bodyParser.json());
@@ -22,7 +23,6 @@ app.get('/', function (req, res) {
 // Route to start Video manipulation service
 app.get('/project/create', function (req, res) {
 
-
     /**
      * TODO
      * 1 - Extract Project ZIP and store in 'projects' dir
@@ -36,83 +36,98 @@ app.get('/project/create', function (req, res) {
         url: "dummy-url"
     })
         .then(function (project) {
-            getContent(project._id);
+
+            // Read the directories present in path
+            fileSystem.readdir(projectDir, function (err, items) {
+                // Iterate through files, directories will contain media files
+                for (i = 0; i < items.length; i++) {
+                    if (fileSystem.lstatSync(projectDir + "/" + items[i]).isDirectory()) {
+                        
+                        readSlideDirectory(project._id, i, items[i], items.length);
+
+                    }
+                };
+            });
+
+            res.send("Project create reqeust has been spawned!");
         })
         .catch(function (err) {
             console.log(err);
         });
 
-    function getContent(projectId) {
 
-        var path = "./projects";
+});
 
-        // Read the directories present in path
-        fileSystem.readdir(path, function (err, items) {
+// Read the contents of directory and identify file types(mime)
+function readSlideDirectory(projectId, i, item, length) {
 
-            // Iterate through files, directories will contain media files
-            for (i = 0; i < items.length; i++) {
+    fileSystem.readdir(projectDir + "/" + item, function (err, mediaFiles) {
 
-                if (fileSystem.lstatSync(path + "/" + items[i]).isDirectory()) {
+        // Check the file type of first file
+        var mimeType = (mime.lookup(mediaFiles[0])).split("/")[0];
+        var slideData = {
+            order: i + 1,
+            status: 0
+        };
 
-                    // Read the contents of directory and identify file types(mime)
-                    fileSystem.readdir(path + "/" + items[i], function (err, mediaFiles) {
+        // Edit the slide data according to Media file type
+        if (mimeType === "audio" || mimeType === "image") {
 
-                        // Check the file type of first file
-                        var mimeType = (mime.lookup(mediaFiles[0])).split("/")[0];
-                        var slideData = {
-                            order: i + 1,
-                            status: 0
-                        };
+            slideData.type = 1
 
-                        // Edit the slide data according to Media file type
-                        if (mimeType === "audio" || mimeType === "image") {
+            mediaFiles.forEach(function (file) {
 
-                            slideData.type = 1
+                mimeType = mime.lookup(file).split("/")[0];
 
-                            mediaFiles.forEach(function (file) {
-
-                                mimeType = mime.lookup(file).split("/")[0];
-
-                                if (mimeType === "image") {
-                                    slideData.fileOne = file;
-                                }
-                                if (mimeType === "audio") {
-                                    slideData.fileTwo = file;
-                                }
-
-                            });
-
-                        } else if (mimeType === "video") {
-
-                            slideData.type = 0
-                            slideData.fileOne = mediaFiles;
-
-                        }
-
-                        // Push the slide data into Project entry
-                        db.Project.findOneAndUpdate({ _id: projectId },
-                            {
-                                $push: {
-                                    slides: slideData
-                                }
-                            })
-                            .then(function (result) {
-                                console.log("Insert: slide data in project entry");
-                            })
-                            .catch(function (err) {
-                                console.log(err);
-                            });
-
-                    });
-
+                if (mimeType === "image") {
+                    slideData.fileOne = file;
+                }
+                if (mimeType === "audio") {
+                    slideData.fileTwo = file;
                 }
 
-            };
+            });
+
+        } else if (mimeType === "video") {
+
+            slideData.type = 0
+            slideData.fileOne = mediaFiles;
+
+        }
+
+        // Push the slide data into Project entry
+        db.Project.findOneAndUpdate({ _id: projectId },
+            {
+                $push: {
+                    slides: slideData
+                }
+            })
+            .then(function (result) {
+                console.log("Insert: slide data in project entry");
+            })
+            .catch(function (err) {
+                console.log(err);
+            });
+
+            if (i === length-1) {
+                // Use timeout as I still don't know how to handle async's correctly.
+                setTimeout(mainStitchFunc, 3000);
+            }
+    });
+
+}
+
+function mainStitchFunc(projectId) {
+
+    db.Project.findOne(projectId)
+        .then(function (result) {
+            console.log(result);
+        })
+        .catch(function (err) {
+            console.log(err);
         });
 
-        res.send("Project create reqeust has been spawned!");
-    }
-});
+};
 
 
 // Route to test Video Concatenation
