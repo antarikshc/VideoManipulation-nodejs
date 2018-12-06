@@ -7,13 +7,13 @@ var projectSchema = new mongoose.Schema({
         required: "Name cannot be blank!"
     },
     url: String,
-    slides: {
-        order: Number,
-        type: Number, // 0 - Video, 1 - Audio/Image
-        fileOne: String,
-        fileTwo: String,
-        status: Number // 0 - Not processed, 1 - Finished processing
-    },
+    slides: [{
+        order: {type: Number},
+        type: {type: Number}, // 0 - Video, 1 - Audio/Image
+        fileOne: {type: String},
+        fileTwo: {type: String},
+        status: {type: Number} // 0 - Not processed, 1 - Finished processing
+    }],
     output: String
 });
 

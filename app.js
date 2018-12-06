@@ -30,62 +30,88 @@ app.get('/project/create', function (req, res) {
      * 3 - Accept request body to remove hardcoding
      */
 
-    var path = "./projects",
-        slides = [];
-
-    // Read the directories present in path
-    fileSystem.readdir(path, function (err, items) {
-
-        // Iterate through files, directories will contain media files
-        items.forEach(function (item, i) {
-            if (fileSystem.lstatSync(path + "/" + item).isDirectory()) {
-
-                // Read the contents of directory and identify file types(mime)
-                fileSystem.readdir(path + "/" + item, function (err, mediaFiles) {
-
-                    // Check the file type of first file
-                    var mimeType = (mime.lookup(mediaFiles[0])).split("/")[0];
-                    var slideData = {
-                        order: i + 1,
-                        status: 0
-                    };
-
-                    // Edit the slide data according to Media file type
-                    if (mimeType === "audio" || mimeType === "image") {
-
-                        slideData.type = 1
-
-                        mediaFiles.forEach(function (file) {
-
-                            mimeType = mime.lookup(file).split("/")[0];
-
-                            if (mimeType === "image") {
-                                slideData.fileOne = path + "/" + item + "/" + file;
-                            }
-                            if (mimeType === "audio") {
-                                slideData.fileTwo = path + "/" + item + "/" + file;
-                            }
-
-                        });
-
-                    } else if (mimeType === "video") {
-
-                        slideData.type = 0
-                        slideData.fileOne = path + "/" + item + "/" + mediaFiles;
-
-                    }
-
-                    // Push it to the slidesData array
-                    slides.push(slideData);
-
-                });
-
-            }
+    //Create project entry in db
+    db.Project.create({
+        name: "Dummy",
+        url: "dummy-url"
+    })
+        .then(function (project) {
+            getContent(project._id);
+        })
+        .catch(function (err) {
+            console.log(err);
         });
-    });
 
-    res.send("Project create reqeust has been spawned!");
+    function getContent(projectId) {
 
+        var path = "./projects";
+
+        // Read the directories present in path
+        fileSystem.readdir(path, function (err, items) {
+
+            // Iterate through files, directories will contain media files
+            for (i = 0; i < items.length; i++) {
+
+                if (fileSystem.lstatSync(path + "/" + items[i]).isDirectory()) {
+
+                    // Read the contents of directory and identify file types(mime)
+                    fileSystem.readdir(path + "/" + items[i], function (err, mediaFiles) {
+
+                        // Check the file type of first file
+                        var mimeType = (mime.lookup(mediaFiles[0])).split("/")[0];
+                        var slideData = {
+                            order: i + 1,
+                            status: 0
+                        };
+
+                        // Edit the slide data according to Media file type
+                        if (mimeType === "audio" || mimeType === "image") {
+
+                            slideData.type = 1
+
+                            mediaFiles.forEach(function (file) {
+
+                                mimeType = mime.lookup(file).split("/")[0];
+
+                                if (mimeType === "image") {
+                                    slideData.fileOne = file;
+                                }
+                                if (mimeType === "audio") {
+                                    slideData.fileTwo = file;
+                                }
+
+                            });
+
+                        } else if (mimeType === "video") {
+
+                            slideData.type = 0
+                            slideData.fileOne = mediaFiles;
+
+                        }
+
+                        // Push the slide data into Project entry
+                        db.Project.findOneAndUpdate({ _id: projectId },
+                            {
+                                $push: {
+                                    slides: slideData
+                                }
+                            })
+                            .then(function (result) {
+                                console.log("Insert: slide data in project entry");
+                            })
+                            .catch(function (err) {
+                                console.log(err);
+                            });
+
+                    });
+
+                }
+
+            };
+        });
+
+        res.send("Project create reqeust has been spawned!");
+    }
 });
 
 
