@@ -2,8 +2,8 @@ var express = require('express'),
     app = express(),
     db = require('./models'),
     bodyParser = require('body-parser'),
-    mime = require('mime-types'),
     fileSystem = require('fs'),
+    mime = require('mime-types'),
     ffmpeg = require('fluent-ffmpeg'),
     videoshow = require('videoshow'),
     projectDir = "./projects";
@@ -23,6 +23,8 @@ app.get('/', function (req, res) {
 // Route to start Video manipulation service
 app.get('/project/create', function (req, res) {
 
+    var projectId;
+
     /**
      * TODO
      * 1 - Extract Project ZIP and store in 'projects' dir
@@ -37,17 +39,20 @@ app.get('/project/create', function (req, res) {
     })
         .then(function (project) {
 
+            projectId = project._id;
+
             // Read the directories present in path
-            fileSystem.readdir(projectDir, function (err, items) {
-                // Iterate through files, directories will contain media files
-                for (i = 0; i < items.length; i++) {
-                    if (fileSystem.lstatSync(projectDir + "/" + items[i]).isDirectory()) {
+            var items = fileSystem.readdirSync(projectDir)
 
-                        readSlideDirectory(project._id, i, items[i], items.length);
+            // Iterate through files, directories will contain media files
+            for (i = 0; i < items.length; i++) {
+                if (fileSystem.lstatSync(projectDir + "/" + items[i]).isDirectory()) {
 
-                    }
-                };
-            });
+                    readSlideDirectory(projectId, i, items[i], items.length);
+
+                }
+            };
+
 
             res.send("Project create reqeust has been spawned!");
         })
@@ -61,66 +66,68 @@ app.get('/project/create', function (req, res) {
 // Read the contents of directory and identify file types(mime)
 function readSlideDirectory(projectId, i, item, length) {
 
-    fileSystem.readdir(projectDir + "/" + item, function (err, mediaFiles) {
+    var mediaFiles = fileSystem.readdirSync(projectDir + "/" + item)
 
-        // Check the file type of first file
-        var mimeType = (mime.lookup(mediaFiles[0])).split("/")[0];
-        var slideData = {
-            order: i + 1,
-            status: 0
-        };
+    // Check the file type of first file
+    var mimeType = (mime.lookup(mediaFiles[0])).split("/")[0];
+    var slideData = {
+        order: i + 1,
+        status: 0
+    };
 
-        // Edit the slide data according to Media file type
-        if (mimeType === "audio" || mimeType === "image") {
+    // Edit the slide data according to Media file type
+    if (mimeType === "audio" || mimeType === "image") {
 
-            slideData.type = 1
+        slideData.type = 1
 
-            mediaFiles.forEach(function (file) {
+        mediaFiles.forEach(function (file) {
 
-                mimeType = mime.lookup(file).split("/")[0];
+            mimeType = mime.lookup(file).split("/")[0];
 
-                if (mimeType === "image") {
-                    slideData.imageFile = file;
-                }
-                if (mimeType === "audio") {
-                    slideData.audioFile = file;
-                }
+            if (mimeType === "image") {
+                slideData.imageFile = file;
+            }
+            if (mimeType === "audio") {
+                slideData.audioFile = file;
+            }
 
-            });
+        });
 
-        } else if (mimeType === "video") {
+    } else if (mimeType === "video") {
 
-            slideData.type = 0
-            slideData.videoFile = mediaFiles;
+        slideData.type = 0
+        slideData.videoFile = mediaFiles;
 
-        }
+    }
 
-        // Push the slide data into Project entry
-        db.Project.findOneAndUpdate({ _id: projectId },
-            {
-                $push: {
-                    slides: slideData
-                }
-            })
-            .then(function(result) {
-                console.log("Insert: slide data in project entry");
-            })
-            .catch(function (err) {
-                console.log(err);
-            });
+    // Push the slide data into Project entry
+    db.Project.findOneAndUpdate({ _id: projectId },
+        {
+            $push: {
+                slides: slideData
+            }
+        })
+        .then(function (result) {
+            console.log("Insert: slide data in project entry");
 
-        if (i === length - 1) {
-            // Use timeout as I still don't know how to handle async's correctly.
-            setTimeout(mainStitchFunc, 3000);
-        }
-    });
+            if (i === length - 1) {
+                mainStitchFunc(projectId);
+            }
 
+        })
+        .catch(function (err) {
+            console.log(err);
+        });
 }
 
 function mainStitchFunc(projectId) {
+    console.log("Request recieved: Video Stitiching initialization");
 
-    db.Project.findOne(projectId)
-        .then(function(result) {
+    db.Project.findById(projectId)
+        .then(function (result) {
+
+            var slides = result.slides;
+            mergeImageAudio(projectId, slides);
 
         })
         .catch(function (err) {
@@ -129,7 +136,27 @@ function mainStitchFunc(projectId) {
 
 };
 
+function mergeImageAudio(projectId, slides) {
+
+    for(var i = 0; i < slides.length; i++) {
+
+        if (slides[i].type === 1) {
+
+            //TODO: Call VideoShow and then query database for all output file in ConcatVideo
+            var imageFile = "./projects/" + slides[i].order + "/" + slides[i].imageFile;
+            var audioFile = "./projects/" + slides[i].order + "/" + slides[i].audioFile;
+            var outputFile = "./projects/" + slides[i].order + "/merged.mp4";
+
+            audioProbe(imageFile, audioFile, outputFile);
+
+        }
+
+    };
+
+}
+
 function concatVideos(inputs) {
+    console.log("Request recieved: Video concatination");
 
     var ffm = ffmpeg();
 
@@ -138,16 +165,72 @@ function concatVideos(inputs) {
     });
 
     ffm
-    .on('start', function (commandLine) {
-        console.log('Spawned FFMPEG with command: ' + commandLine);
-    })
-    .on('error', function (err) {
-        console.log('An error occurred: ' + err.message);
-    })
-    .on('end', function () {
-        console.log('Merging finished !');
-    })
-    .mergeToFile('./temp/concat.mp4', './cache');    // needs a temporary folder as second argument
+        .on('start', function (commandLine) {
+            console.log('Spawned FFMPEG with command: ' + commandLine);
+        })
+        .on('error', function (err) {
+            console.log('An error occurred: ' + err.message);
+        })
+        .on('end', function () {
+            console.log('Merging finished !');
+        })
+        .mergeToFile('./temp/concat.mp4', './cache');    // needs a temporary folder as second argument
+
+}
+
+// Probe the Audio file to get the File metadata, we need duration for now
+function audioProbe(imageFile, audioFile, outputFile) {
+    console.log("Request recieved: Audio probe");
+
+    var images, duration, videoOptions;
+
+    ffmpeg(audioFile)
+        .ffprobe(function (err, data) {
+
+            duration = parseInt(data.streams[0].duration);
+
+            // Video options to render the video
+            videoOptions = {
+                fps: 25,
+                transition: true,
+                transitionDuration: 1, // seconds
+                videoBitrate: 1024,
+                videoCodec: 'libx264',
+                audioBitrate: '128k',
+                audioChannels: 2,
+                format: 'mp4',
+                pixelFormat: 'yuv420p'
+            }
+
+            // Set of images with the duration obtained from ffprobe
+            images = [{
+                path: imageFile,
+                loop: duration
+            }]
+
+            videoMerge(images, audioFile, videoOptions, outputFile);
+
+        });
+
+}
+
+// Function to merge Audio and Image to create Video
+function videoMerge(images, audioFile, videoOptions, outputFile) {
+    console.log("Request recieved: Image - Audio merge");
+
+    videoshow(images, videoOptions)
+        .audio(audioFile)
+        .save(outputFile)
+        .on('start', function (command) {
+            console.log('ffmpeg process started:', command)
+        })
+        .on('error', function (err, stdout, stderr) {
+            console.error('Error:', err)
+            console.error('ffmpeg stderr:', stderr)
+        })
+        .on('end', function (output) {
+            console.error('Video created in:', output)
+        });
 
 }
 
@@ -175,58 +258,6 @@ app.get('/project/vidconcat', function (req, res) {
 app.get('/project/imgconcat', function (req, res) {
 
     var images, duration, videoOptions;
-
-    // Probe the Audio file to get the File metadata, we need duration for now
-    function audioProbe(callback) {
-
-        ffmpeg('./temp/image.jpg')
-            .ffprobe(function (err, data) {
-                console.log(data);
-                duration = parseInt(data.streams[0].duration);
-
-                // Video options to render the video
-                videoOptions = {
-                    fps: 25,
-                    transition: true,
-                    transitionDuration: 1, // seconds
-                    videoBitrate: 1024,
-                    videoCodec: 'libx264',
-                    audioBitrate: '128k',
-                    audioChannels: 2,
-                    format: 'mp4',
-                    pixelFormat: 'yuv420p'
-                }
-
-                // Set of images with the duration obtained from ffprobe
-                images = [{
-                    path: './temp/image.jpg',
-                    loop: duration
-                }]
-
-                //callback();
-
-            });
-
-    }
-
-    // Function to merge Audio and Image to create Video
-    function videoMerge() {
-
-        videoshow(images, videoOptions)
-            .audio('./temp/song.mp3')
-            .save('./temp/outputshow.mp4')
-            .on('start', function (command) {
-                console.log('ffmpeg process started:', command)
-            })
-            .on('error', function (err, stdout, stderr) {
-                console.error('Error:', err)
-                console.error('ffmpeg stderr:', stderr)
-            })
-            .on('end', function (output) {
-                console.error('Video created in:', output)
-            });
-
-    }
 
     audioProbe(videoMerge);
 
