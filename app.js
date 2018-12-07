@@ -32,7 +32,7 @@ app.get('/project/create', function (req, res) {
      * 3 - Accept request body to remove hardcoding
      */
 
-    //Create project entry in db
+    // Create project entry in db
     db.Project.create({
         name: "Dummy",
         url: "dummy-url"
@@ -51,7 +51,7 @@ app.get('/project/create', function (req, res) {
                     readSlideDirectory(projectId, i, items[i], items.length);
 
                 }
-            };
+            }
 
 
             res.send("Project create reqeust has been spawned!");
@@ -138,48 +138,26 @@ function mainStitchFunc(projectId) {
 
 function mergeImageAudio(projectId, slides) {
 
-    for(var i = 0; i < slides.length; i++) {
+    for (var i = 0; i < slides.length; i++) {
 
         if (slides[i].type === 1) {
 
             //TODO: Call VideoShow and then query database for all output file in ConcatVideo
             var imageFile = "./projects/" + slides[i].order + "/" + slides[i].imageFile;
             var audioFile = "./projects/" + slides[i].order + "/" + slides[i].audioFile;
-            var outputFile = "./projects/" + slides[i].order + "/merged.mp4";
+            var outputFile = "merged.mp4";
 
-            audioProbe(imageFile, audioFile, outputFile);
+            audioProbe(imageFile, audioFile, outputFile, projectId, slides[i].order);
 
         }
 
     };
 
-}
-
-function concatVideos(inputs) {
-    console.log("Request recieved: Video concatination");
-
-    var ffm = ffmpeg();
-
-    inputs.forEach(function (input) {
-        ffm.addInput(input);
-    });
-
-    ffm
-        .on('start', function (commandLine) {
-            console.log('Spawned FFMPEG with command: ' + commandLine);
-        })
-        .on('error', function (err) {
-            console.log('An error occurred: ' + err.message);
-        })
-        .on('end', function () {
-            console.log('Merging finished !');
-        })
-        .mergeToFile('./temp/concat.mp4', './cache');    // needs a temporary folder as second argument
 
 }
 
 // Probe the Audio file to get the File metadata, we need duration for now
-function audioProbe(imageFile, audioFile, outputFile) {
+function audioProbe(imageFile, audioFile, outputFile, projectId, slideOrder) {
     console.log("Request recieved: Audio probe");
 
     var images, duration, videoOptions;
@@ -198,6 +176,7 @@ function audioProbe(imageFile, audioFile, outputFile) {
                 videoCodec: 'libx264',
                 audioBitrate: '128k',
                 audioChannels: 2,
+                size: '1920x1080',
                 format: 'mp4',
                 pixelFormat: 'yuv420p'
             }
@@ -208,29 +187,105 @@ function audioProbe(imageFile, audioFile, outputFile) {
                 loop: duration
             }]
 
-            videoMerge(images, audioFile, videoOptions, outputFile);
+            videoMerge(images, audioFile, videoOptions, outputFile, projectId, slideOrder);
 
         });
 
 }
 
 // Function to merge Audio and Image to create Video
-function videoMerge(images, audioFile, videoOptions, outputFile) {
+function videoMerge(images, audioFile, videoOptions, outputFile, projectId, slideOrder) {
     console.log("Request recieved: Image - Audio merge");
 
     videoshow(images, videoOptions)
         .audio(audioFile)
-        .save(outputFile)
+        .save("./projects/" + slideOrder + "/" + outputFile)
         .on('start', function (command) {
-            console.log('ffmpeg process started:', command)
+            console.log('FFMPEG process started for Image-Audio merge:', command)
         })
         .on('error', function (err, stdout, stderr) {
-            console.error('Error:', err)
-            console.error('ffmpeg stderr:', stderr)
+            console.error('FFMPEG Error:', err)
+            console.error('FFMPEG stderr:', stderr)
         })
         .on('end', function (output) {
-            console.error('Video created in:', output)
+            console.error('FFMPEG Merged video created in:', output)
+
+            // Update the project entry with OutputFile as VideoFile
+            db.Project.findOneAndUpdate({ _id: projectId, slides: { $elemMatch: { order: slideOrder } } },
+                {
+                    "$set": {
+                        "slides.$.videoFile": outputFile
+                    }
+                })
+                .then((result) => {
+                    checkForOutputFile();
+                })
+                .catch((err) => {
+                    console.log(err);
+                })
+
         });
+
+}
+
+function checkForOutputFile(projectId) {
+
+    db.Project.findOne(projectId)
+        .then((result) => {
+
+            var slides = result.slides,
+                isReady = true,
+                outputFiles = [];
+
+            for (var i = 0; i < slides.length; i++) {
+
+                outputFiles.push({
+                    order: slides[i].order,
+                    file: slides[i].videoFile
+                });
+
+                if (slides[i].outputFile === null || slides[i].outputFile === "") {
+                    isReady = false;
+                }
+
+            }
+
+            if (isReady) {
+                concatVideos(outputFiles);
+            }
+
+
+        })
+        .catch((err) => {
+            console.log(err);
+        });
+
+}
+
+// Concat video files
+function concatVideos(inputs) {
+    console.log("Request recieved: Video concatination");
+
+    console.log(inputs);
+
+    var ffm = ffmpeg("./projects/" + inputs[0].order + "/" + inputs[0].file);
+
+    for (var i = 1; i < inputs.length; i++) {
+        console.log("./projects/" + inputs[i].order + "/" + inputs[i].file);
+        ffm.mergeAdd("./projects/" + inputs[i].order + "/" + inputs[i].file);
+    }
+
+    ffm
+        .on('start', function (commandLine) {
+            console.log('Spawned FFMPEG with command: ' + commandLine);
+        })
+        .on('error', function (err) {
+            console.log('An error occurred: ' + err.message);
+        })
+        .on('end', function () {
+            console.log('Merging finished !');
+        })
+        .mergeToFile('./temp/concat.mp4', './cache');    // needs a temporary folder as second argument
 
 }
 
