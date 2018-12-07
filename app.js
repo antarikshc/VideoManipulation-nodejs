@@ -184,7 +184,7 @@ function audioProbe(imageFile, audioFile, outputFile, projectId, slideOrder) {
             // Set of images with the duration obtained from ffprobe
             images = [{
                 path: imageFile,
-                loop: duration
+                loop: 4
             }]
 
             videoMerge(images, audioFile, videoOptions, outputFile, projectId, slideOrder);
@@ -276,6 +276,7 @@ function concatVideos(inputs) {
     }
 
     ffm
+        .complexFilter(["scale=w=1280:h=720"])
         .on('start', function (commandLine) {
             console.log('Spawned FFMPEG with command: ' + commandLine);
         })
