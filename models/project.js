@@ -13,6 +13,7 @@ var projectSchema = new mongoose.Schema({
         imageFile: {type: String},
         audioFile: {type: String},
         videoFile: {type: String},
+        fileToConcat: {type: String},
         status: {type: Number} // 0 - Not processed, 1 - Finished processing
     }],
     output: String
