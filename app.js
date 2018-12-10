@@ -70,7 +70,7 @@ function readSlideDirectory(projectId, i, item, length) {
     // Check the file type of first file
     var mimeType = (mime.lookup(mediaFiles[0])).split("/")[0];
     var slideData = {
-        order: i + 1,
+        slideOrder: i + 1,
         status: 0
     };
 
@@ -95,7 +95,15 @@ function readSlideDirectory(projectId, i, item, length) {
     } else if (mimeType === "video") {
 
         slideData.type = 0
-        slideData.videoFile = mediaFiles;
+
+        mediaFiles.forEach(function (file) {
+
+            if (file !== "scaled.mp4") {
+                slideData.videoFile = file;
+            }
+
+        });
+
 
     }
 
@@ -127,7 +135,8 @@ function mainStitchFunc(projectId) {
         .then(function (result) {
 
             var slides = result.slides;
-            mergeImageAudio(projectId, slides);
+            startMergingImageAudio(projectId, slides);
+            startScalingVideos(projectId, slides);
 
         })
         .catch(function (err) {
@@ -137,25 +146,25 @@ function mainStitchFunc(projectId) {
 };
 
 // Starts sequence of merging Image and Audio to make Video
-function mergeImageAudio(projectId, slides) {
+function startMergingImageAudio(projectId, slides) {
 
     for (var i = 0; i < slides.length; i++) {
 
         if (slides[i].type === 1) {
 
-            var imageFile = "./projects/" + slides[i].order + "/" + slides[i].imageFile;
-            var audioFile = "./projects/" + slides[i].order + "/" + slides[i].audioFile;
-            var fileToConcat = "merged.mp4";
+            var imageFile = "./projects/" + slides[i].slideOrder + "/" + slides[i].imageFile;
+            var audioFile = "./projects/" + slides[i].slideOrder + "/" + slides[i].audioFile;
+            var fileToConcat = "./projects/" + slides[i].slideOrder + "/merged.mp4";
 
-            audioProbe(imageFile, audioFile, fileToConcat, projectId, slides[i].order);
+            ffmpegAudioProbe(imageFile, audioFile, fileToConcat, projectId, slides[i].slideOrder);
 
         }
 
-    };
+    }
 }
 
 // Probe the Audio file to get the File metadata, we need duration for now
-function audioProbe(imageFile, audioFile, fileToConcat, projectId, slideOrder) {
+function ffmpegAudioProbe(imageFile, audioFile, fileToConcat, projectId, slideOrder) {
     console.log("Request recieved: Audio probe");
 
     var images, duration, videoOptions;
@@ -174,7 +183,7 @@ function audioProbe(imageFile, audioFile, fileToConcat, projectId, slideOrder) {
                 videoCodec: 'libx264',
                 audioBitrate: '128k',
                 audioChannels: 2,
-                size: '1920x1080',
+                size: '1280x720',
                 format: 'mp4',
                 pixelFormat: 'yuv420p'
             }
@@ -185,38 +194,38 @@ function audioProbe(imageFile, audioFile, fileToConcat, projectId, slideOrder) {
                 loop: duration
             }]
 
-            videoMerge(images, audioFile, videoOptions, fileToConcat, projectId, slideOrder);
+            ffmpegVideoMerge(images, audioFile, videoOptions, fileToConcat, projectId, slideOrder);
 
         });
 
 }
 
 // Function to merge Audio and Image to create Video
-function videoMerge(images, audioFile, videoOptions, fileToConcat, projectId, slideOrder) {
+function ffmpegVideoMerge(images, audioFile, videoOptions, fileToConcat, projectId, slideOrder) {
     console.log("Request recieved: Image - Audio merge");
 
     videoshow(images, videoOptions)
         .audio(audioFile)
-        .save("./projects/" + slideOrder + "/" + fileToConcat)
+        .save(fileToConcat)
         .on('start', function (command) {
-            console.log('FFMPEG process started for Image-Audio merge:', command)
+            console.log('FFMPEG spawned for Image-Audio merge:', command)
         })
         .on('error', function (err, stdout, stderr) {
-            console.error('FFMPEG Error:', err)
-            console.error('FFMPEG stderr:', stderr)
+            console.error('FFMPEG Image-Audio merge Error:', err)
+            console.error('FFMPEG Image-Audio merge stderr:', stderr)
         })
         .on('end', function (output) {
-            console.error('FFMPEG Merged video created in:', output)
+            console.error('FFMPEG Image-Audio merge output:', output)
 
             // Update the project entry with fileToConcat
-            db.Project.findOneAndUpdate({ _id: projectId, slides: { $elemMatch: { order: slideOrder } } },
+            db.Project.findOneAndUpdate({ _id: projectId, 'slides.slideOrder': slideOrder },
                 {
-                    "$set": {
+                    '$set': {
                         "slides.$.fileToConcat": fileToConcat
                     }
-                })
+                }, { new: true })
                 .then((result) => {
-                    checkForFilesToConcat();
+                    checkForFilesToConcat(projectId);
                 })
                 .catch((err) => {
                     console.log(err);
@@ -226,11 +235,65 @@ function videoMerge(images, audioFile, videoOptions, fileToConcat, projectId, sl
 
 }
 
+// Starts the squence of scaling video
+function startScalingVideos(projectId, slides) {
+
+    for (var i = 0; i < slides.length; i++) {
+
+        if (slides[i].type === 0) {
+
+            var slideOrder = slides[i].slideOrder;
+
+            var videoFile = "./projects/" + slideOrder + "/" + slides[i].videoFile;
+            var fileToConcat = "./projects/" + slideOrder + "/scaled.mp4";
+
+            ffmpegScaleVideo(projectId, slides[i].slideOrder, videoFile, fileToConcat);
+
+        }
+
+    }
+}
+
+// To scale videos of different resolutions for robust concat
+function ffmpegScaleVideo(projectId, slideOrder, videoFile, fileToConcat) {
+    console.log("Request received: Scale video");
+
+    ffmpeg(videoFile)
+        .output(fileToConcat)
+        .size("1280x720")
+        .on('start', function (commandLine) {
+            console.log('FFMPEG spawned for scaling video: ' + commandLine);
+        })
+        .on('error', function (err) {
+            console.log('FFMPEG scaling video error: ' + err.message);
+        })
+        .on('end', function () {
+            console.log('FFMPEG scaling video finished!');
+
+            // Update the project entry with fileToConcat
+            db.Project.findOneAndUpdate({ _id: projectId, 'slides.slideOrder': slideOrder },
+                {
+                    '$set': {
+                        "slides.$.fileToConcat": fileToConcat
+                    }
+                }, { new: true })
+                .then((result) => {
+                    checkForFilesToConcat(projectId);
+                })
+                .catch((err) => {
+                    console.log(err);
+                })
+
+        })
+        .run();
+
+}
+
 // Checks the project entry whether all slides have Video file
 // before processding for final video concatenation 
 function checkForFilesToConcat(projectId) {
 
-    db.Project.findOne(projectId)
+    db.Project.findOne({ _id: projectId })
         .then((result) => {
 
             var slides = result.slides,
@@ -240,7 +303,7 @@ function checkForFilesToConcat(projectId) {
             for (var i = 0; i < slides.length; i++) {
 
                 files.push({
-                    order: slides[i].order,
+                    order: slides[i].slideOrder,
                     file: slides[i].fileToConcat
                 });
 
@@ -251,9 +314,8 @@ function checkForFilesToConcat(projectId) {
             }
 
             if (isReady) {
-                concatVideos(files);
+                ffmpegConcatVideos(files);
             }
-
 
         })
         .catch((err) => {
@@ -263,25 +325,24 @@ function checkForFilesToConcat(projectId) {
 }
 
 // Concat video files
-function concatVideos(inputs) {
+function ffmpegConcatVideos(inputs) {
     console.log("Request recieved: Video concatination");
 
-    var ffm = ffmpeg("./projects/" + inputs[0].order + "/" + inputs[0].file);
+    var ffm = ffmpeg(inputs[0].file);
 
     for (var i = 1; i < inputs.length; i++) {
-        ffm.addInput("./projects/" + inputs[i].order + "/" + inputs[i].file);
+        ffm.mergeAdd(inputs[i].file);
     }
 
     ffm
-        .complexFilter(["scale=w=1280:h=720"])
         .on('start', function (commandLine) {
-            console.log('Spawned FFMPEG with command: ' + commandLine);
+            console.log('FFMPEG spawned for video concat: ' + commandLine);
         })
         .on('error', function (err) {
-            console.log('An error occurred: ' + err.message);
+            console.log('FFMPEG video concat error: ' + err.message);
         })
         .on('end', function () {
-            console.log('Merging finished !');
+            console.log('FFMPEG video concat finished!');
         })
         .mergeToFile('./temp/concat.mp4', './cache');    // needs a temporary folder as second argument
 
@@ -291,3 +352,22 @@ function concatVideos(inputs) {
 app.listen(app.get('port'), function () {
     console.log("Server is running on " + app.get('port'));
 });
+
+// .output("./temp/concat.mp4")
+// .complexFilter([
+//     {
+//         "filter": "concat",
+//         "options": {
+//             "n": "3",
+//             "v": "1",
+//             "a": "1",
+//         }
+//     },
+//     {
+//         "filter": "scale",
+//         "options": {
+//             "w": "1280",
+//             "h": "720"
+//         }
+//     }
+// ])

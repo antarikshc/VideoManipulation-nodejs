@@ -8,7 +8,7 @@ var projectSchema = new mongoose.Schema({
     },
     url: String,
     slides: [{
-        order: {type: Number},
+        slideOrder: {type: Number},
         type: {type: Number}, // 0 - Video, 1 - Audio/Image
         imageFile: {type: String},
         audioFile: {type: String},
