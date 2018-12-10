@@ -20,7 +20,7 @@ app.get('/', function (req, res) {
     res.send("Welcome to Video Manipulation API!");
 });
 
-// Route to start Video manipulation service
+// Create Project route to start Video manipulation service
 app.get('/project/create', function (req, res) {
 
     var projectId;
@@ -120,6 +120,7 @@ function readSlideDirectory(projectId, i, item, length) {
         });
 }
 
+// Search the database for project entry and start stitching function 
 function mainStitchFunc(projectId) {
     console.log("Request recieved: Video Stitiching initialization");
 
@@ -136,6 +137,7 @@ function mainStitchFunc(projectId) {
 
 };
 
+// Starts sequence of merging Image and Audio to make Video
 function mergeImageAudio(projectId, slides) {
 
     for (var i = 0; i < slides.length; i++) {
@@ -184,7 +186,7 @@ function audioProbe(imageFile, audioFile, outputFile, projectId, slideOrder) {
             // Set of images with the duration obtained from ffprobe
             images = [{
                 path: imageFile,
-                loop: 4
+                loop: duration
             }]
 
             videoMerge(images, audioFile, videoOptions, outputFile, projectId, slideOrder);
@@ -218,7 +220,7 @@ function videoMerge(images, audioFile, videoOptions, outputFile, projectId, slid
                     }
                 })
                 .then((result) => {
-                    checkForOutputFile();
+                    checkForVideoFile();
                 })
                 .catch((err) => {
                     console.log(err);
@@ -228,7 +230,9 @@ function videoMerge(images, audioFile, videoOptions, outputFile, projectId, slid
 
 }
 
-function checkForOutputFile(projectId) {
+// Checks the project entry whether all slides have Video file
+// before processding for final video concatenation 
+function checkForVideoFile(projectId) {
 
     db.Project.findOne(projectId)
         .then((result) => {
@@ -266,12 +270,9 @@ function checkForOutputFile(projectId) {
 function concatVideos(inputs) {
     console.log("Request recieved: Video concatination");
 
-    console.log(inputs);
-
     var ffm = ffmpeg("./projects/" + inputs[0].order + "/" + inputs[0].file);
 
     for (var i = 1; i < inputs.length; i++) {
-        console.log("./projects/" + inputs[i].order + "/" + inputs[i].file);
         ffm.mergeAdd("./projects/" + inputs[i].order + "/" + inputs[i].file);
     }
 
