@@ -52,8 +52,7 @@ app.get('/project/create', function (req, res) {
 
                 }
             }
-
-
+            
             res.send("Project create reqeust has been spawned!");
         })
         .catch(function (err) {
@@ -277,7 +276,7 @@ function concatVideos(inputs) {
     }
 
     ffm
-        .complexFilter(["scale=w=1280:h=720"])
+        .complexFilter(['scale=w=1280:h=720'])
         .on('start', function (commandLine) {
             console.log('Spawned FFMPEG with command: ' + commandLine);
         })
