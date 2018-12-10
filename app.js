@@ -290,36 +290,6 @@ function concatVideos(inputs) {
 
 }
 
-// Route to test Video Concatenation
-app.get('/project/vidconcat', function (req, res) {
-
-    // Currently hardcoding concatenation of two videos
-    ffmpeg('./temp/vid1.mp4')
-        .input('./temp/vid2.mp4')
-        .on('start', function (commandLine) {
-            console.log('Spawned Ffmpeg with command: ' + commandLine);
-            res.send("Spawned Ffmpeg for merging")
-        })
-        .on('error', function (err) {
-            console.log('An error occurred: ' + err.message);
-        })
-        .on('end', function () {
-            console.log('Merging finished !');
-        })
-        .mergeToFile('./temp/ffoutput.mp4', './cache');    // needs a temporary folder as second argument
-
-});
-
-// Route to test Image and Audio merging
-app.get('/project/imgconcat', function (req, res) {
-
-    var images, duration, videoOptions;
-
-    audioProbe(videoMerge);
-
-});
-
-
 // Listen to the default PORT for incoming request
 app.listen(app.get('port'), function () {
     console.log("Server is running on " + app.get('port'));
