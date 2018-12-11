@@ -1,12 +1,12 @@
-var express = require('express'),
-    app = express(),
-    db = require('./models'),
-    bodyParser = require('body-parser'),
-    fileSystem = require('fs'),
-    mime = require('mime-types'),
-    ffmpeg = require('fluent-ffmpeg'),
-    videoshow = require('videoshow'),
-    projectDir = "./projects";
+var express     = require('express'),
+    app         = express(),
+    db          = require('./models'),
+    bodyParser  = require('body-parser'),
+    fileSystem  = require('fs'),
+    mime        = require('mime-types'),
+    ffmpeg      = require('fluent-ffmpeg'),
+    videoshow   = require('videoshow'),
+    projectDir  = "./projects";
 
 // Setup body parse to receive json format requests
 app.use(bodyParser.json());
@@ -104,7 +104,6 @@ function readSlideDirectory(projectId, i, item, length) {
             }
 
         });
-
 
     }
 
@@ -316,7 +315,7 @@ function checkForFilesToConcat(projectId) {
             }
 
             if (isReady) {
-                ffmpegConcatVideos(files);
+                ffmpegConcatVideos(result.name, files);
             }
 
         })
@@ -327,7 +326,7 @@ function checkForFilesToConcat(projectId) {
 }
 
 // Concat video files
-function ffmpegConcatVideos(inputs) {
+function ffmpegConcatVideos(name, inputs) {
     console.log("Request recieved: Video concatination");
 
     var ffm = ffmpeg(inputs[0].file);
@@ -346,7 +345,7 @@ function ffmpegConcatVideos(inputs) {
         .on('end', function () {
             console.log('FFMPEG video concat finished!');
         })
-        .mergeToFile('./temp/concat.mp4', './cache');    // needs a temporary folder as second argument
+        .mergeToFile('./videos/' + name + ".mp4", './cache');    // needs a temporary folder as second argument
 
 }
 
