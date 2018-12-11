@@ -23,13 +23,21 @@ app.get('/', function (req, res) {
 // Create Project route to start Video manipulation service
 app.get('/project/create', function (req, res) {
 
-    var projectId;
+    init(req, res);
+
+});
+
+// Starting point for API
+// Creates database entry
+function init(req, res) {
 
     /**
      * TODO
      * 1 - Extract Project ZIP and store in 'projects' dir
      * 2 - Google Cloud authentication
      */
+
+    var projectId;
 
     // Create project entry in db
     db.Project.create({
@@ -48,7 +56,7 @@ app.get('/project/create', function (req, res) {
             for (i = 0; i < items.length; i++) {
                 if (fileSystem.lstatSync(projectDir + project.name + "/" + items[i]).isDirectory()) {
 
-                    readSlideDirectory(projectId, project.name, i, items[i], items.length);
+                    readProjectDirectory(projectId, project.name, i, items[i], items.length);
 
                 }
             }
@@ -61,10 +69,10 @@ app.get('/project/create', function (req, res) {
             console.log(err);
         });
 
-});
+}
 
 // Read the contents of directory and identify file types(mime)
-function readSlideDirectory(projectId, name, i, item, length) {
+function readProjectDirectory(projectId, name, i, item, length) {
 
     var mediaFiles = fileSystem.readdirSync(projectDir + name + "/" + item)
 
@@ -118,7 +126,7 @@ function readSlideDirectory(projectId, name, i, item, length) {
             console.log("Insert: slide data in project entry");
 
             if (i === length - 1) {
-                mainStitchFunc(projectId);
+                initVideoStitching(projectId);
             }
 
         })
@@ -127,8 +135,8 @@ function readSlideDirectory(projectId, name, i, item, length) {
         });
 }
 
-// Search the database for project entry and start stitching function 
-function mainStitchFunc(projectId) {
+// Search the database for project entry and initiate stitching function 
+function initVideoStitching(projectId) {
     console.log("Request recieved: Video Stitiching initialization");
 
     db.Project.findById(projectId)
