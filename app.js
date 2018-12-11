@@ -6,7 +6,7 @@ var express     = require('express'),
     mime        = require('mime-types'),
     ffmpeg      = require('fluent-ffmpeg'),
     videoshow   = require('videoshow'),
-    projectDir  = "./projects";
+    projectDir  = "./projects/";
 
 // Setup body parse to receive json format requests
 app.use(bodyParser.json());
@@ -42,13 +42,13 @@ app.get('/project/create', function (req, res) {
             projectId = project._id;
 
             // Read the directories present in path
-            var items = fileSystem.readdirSync(projectDir)
+            var items = fileSystem.readdirSync(projectDir + project.name + "/")
 
             // Iterate through files, directories will contain media files
             for (i = 0; i < items.length; i++) {
-                if (fileSystem.lstatSync(projectDir + "/" + items[i]).isDirectory()) {
+                if (fileSystem.lstatSync(projectDir + project.name + "/" + items[i]).isDirectory()) {
 
-                    readSlideDirectory(projectId, i, items[i], items.length);
+                    readSlideDirectory(projectId, project.name, i, items[i], items.length);
 
                 }
             }
@@ -64,9 +64,9 @@ app.get('/project/create', function (req, res) {
 });
 
 // Read the contents of directory and identify file types(mime)
-function readSlideDirectory(projectId, i, item, length) {
+function readSlideDirectory(projectId, name, i, item, length) {
 
-    var mediaFiles = fileSystem.readdirSync(projectDir + "/" + item)
+    var mediaFiles = fileSystem.readdirSync(projectDir + name + "/" + item)
 
     // Check the file type of first file
     var mimeType = (mime.lookup(mediaFiles[0])).split("/")[0];
@@ -135,8 +135,8 @@ function mainStitchFunc(projectId) {
         .then(function (result) {
 
             var slides = result.slides;
-            startMergingImageAudio(projectId, slides, result.resolution);
-            startScalingVideos(projectId, slides, result.resolution);
+            startMergingImageAudio(projectId, result.name, slides, result.resolution);
+            startScalingVideos(projectId, result.name, slides, result.resolution);
 
         })
         .catch(function (err) {
@@ -146,15 +146,15 @@ function mainStitchFunc(projectId) {
 };
 
 // Starts sequence of merging Image and Audio to make Video
-function startMergingImageAudio(projectId, slides, resolution) {
+function startMergingImageAudio(projectId, name, slides, resolution) {
 
     for (var i = 0; i < slides.length; i++) {
 
         if (slides[i].type === 1) {
 
-            var imageFile = "./projects/" + slides[i].slideOrder + "/" + slides[i].imageFile;
-            var audioFile = "./projects/" + slides[i].slideOrder + "/" + slides[i].audioFile;
-            var fileToConcat = "./projects/" + slides[i].slideOrder + "/merged.mp4";
+            var imageFile = projectDir + name + "/" + slides[i].slideOrder + "/" + slides[i].imageFile;
+            var audioFile = projectDir + name + "/" + slides[i].slideOrder + "/" + slides[i].audioFile;
+            var fileToConcat = projectDir + name + "/" + slides[i].slideOrder + "/merged.mp4";
 
             ffmpegAudioProbe(imageFile, audioFile, fileToConcat, 
                 projectId, slides[i].slideOrder, resolution);
@@ -237,7 +237,7 @@ function ffmpegVideoMerge(images, audioFile, videoOptions, fileToConcat, project
 }
 
 // Starts the squence of scaling video
-function startScalingVideos(projectId, slides, resolution) {
+function startScalingVideos(projectId, name, slides, resolution) {
 
     for (var i = 0; i < slides.length; i++) {
 
@@ -245,8 +245,8 @@ function startScalingVideos(projectId, slides, resolution) {
 
             var slideOrder = slides[i].slideOrder;
 
-            var videoFile = "./projects/" + slideOrder + "/" + slides[i].videoFile;
-            var fileToConcat = "./projects/" + slideOrder + "/scaled.mp4";
+            var videoFile = projectDir + name + "/" + slideOrder + "/" + slides[i].videoFile;
+            var fileToConcat = projectDir + name + "/" + slideOrder + "/scaled.mp4";
 
             ffmpegScaleVideo(projectId, slides[i].slideOrder, videoFile, fileToConcat, resolution);
 
