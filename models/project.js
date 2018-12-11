@@ -6,7 +6,7 @@ var projectSchema = new mongoose.Schema({
         type: String,
         required: "Name cannot be blank!"
     },
-    url: String,
+    zipUrl: String,
     slides: [{
         slideOrder: {type: Number},
         type: {type: Number}, // 0 - Video, 1 - Audio/Image

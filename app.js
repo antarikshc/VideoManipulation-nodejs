@@ -29,13 +29,12 @@ app.get('/project/create', function (req, res) {
      * TODO
      * 1 - Extract Project ZIP and store in 'projects' dir
      * 2 - Google Cloud authentication
-     * 3 - Accept request body to remove hardcoding
      */
 
     // Create project entry in db
     db.Project.create({
-        name: "Dummy",
-        url: "dummy-url"
+        name: req.body.name,
+        zipUrl: req.body.zipUrl
     })
         .then(function (project) {
 
@@ -53,12 +52,13 @@ app.get('/project/create', function (req, res) {
                 }
             }
 
-            res.send("Project create reqeust has been spawned!");
+            res.json({
+                message: "Project create reqeust has been spawned!"
+            });
         })
         .catch(function (err) {
             console.log(err);
         });
-
 
 });
 
@@ -352,22 +352,3 @@ function ffmpegConcatVideos(inputs) {
 app.listen(app.get('port'), function () {
     console.log("Server is running on " + app.get('port'));
 });
-
-// .output("./temp/concat.mp4")
-// .complexFilter([
-//     {
-//         "filter": "concat",
-//         "options": {
-//             "n": "3",
-//             "v": "1",
-//             "a": "1",
-//         }
-//     },
-//     {
-//         "filter": "scale",
-//         "options": {
-//             "w": "1280",
-//             "h": "720"
-//         }
-//     }
-// ])
