@@ -7,6 +7,10 @@ var projectSchema = new mongoose.Schema({
         required: "Name cannot be blank!"
     },
     zipUrl: String,
+    resolution: {
+        type: String,
+        default: "1280x720" // "1280x720", "1920x1080"
+    },
     slides: [{
         slideOrder: {type: Number},
         type: {type: Number}, // 0 - Video, 1 - Audio/Image

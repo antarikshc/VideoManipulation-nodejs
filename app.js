@@ -34,7 +34,8 @@ app.get('/project/create', function (req, res) {
     // Create project entry in db
     db.Project.create({
         name: req.body.name,
-        zipUrl: req.body.zipUrl
+        zipUrl: req.body.zipUrl,
+        resolution: req.body.resolution
     })
         .then(function (project) {
 
@@ -135,8 +136,8 @@ function mainStitchFunc(projectId) {
         .then(function (result) {
 
             var slides = result.slides;
-            startMergingImageAudio(projectId, slides);
-            startScalingVideos(projectId, slides);
+            startMergingImageAudio(projectId, slides, result.resolution);
+            startScalingVideos(projectId, slides, result.resolution);
 
         })
         .catch(function (err) {
@@ -146,7 +147,7 @@ function mainStitchFunc(projectId) {
 };
 
 // Starts sequence of merging Image and Audio to make Video
-function startMergingImageAudio(projectId, slides) {
+function startMergingImageAudio(projectId, slides, resolution) {
 
     for (var i = 0; i < slides.length; i++) {
 
@@ -156,7 +157,8 @@ function startMergingImageAudio(projectId, slides) {
             var audioFile = "./projects/" + slides[i].slideOrder + "/" + slides[i].audioFile;
             var fileToConcat = "./projects/" + slides[i].slideOrder + "/merged.mp4";
 
-            ffmpegAudioProbe(imageFile, audioFile, fileToConcat, projectId, slides[i].slideOrder);
+            ffmpegAudioProbe(imageFile, audioFile, fileToConcat, 
+                projectId, slides[i].slideOrder, resolution);
 
         }
 
@@ -164,7 +166,7 @@ function startMergingImageAudio(projectId, slides) {
 }
 
 // Probe the Audio file to get the File metadata, we need duration for now
-function ffmpegAudioProbe(imageFile, audioFile, fileToConcat, projectId, slideOrder) {
+function ffmpegAudioProbe(imageFile, audioFile, fileToConcat, projectId, slideOrder, resolution) {
     console.log("Request recieved: Audio probe");
 
     var images, duration, videoOptions;
@@ -183,7 +185,7 @@ function ffmpegAudioProbe(imageFile, audioFile, fileToConcat, projectId, slideOr
                 videoCodec: 'libx264',
                 audioBitrate: '128k',
                 audioChannels: 2,
-                size: '1280x720',
+                size: resolution,
                 format: 'mp4',
                 pixelFormat: 'yuv420p'
             }
@@ -236,7 +238,7 @@ function ffmpegVideoMerge(images, audioFile, videoOptions, fileToConcat, project
 }
 
 // Starts the squence of scaling video
-function startScalingVideos(projectId, slides) {
+function startScalingVideos(projectId, slides, resolution) {
 
     for (var i = 0; i < slides.length; i++) {
 
@@ -247,7 +249,7 @@ function startScalingVideos(projectId, slides) {
             var videoFile = "./projects/" + slideOrder + "/" + slides[i].videoFile;
             var fileToConcat = "./projects/" + slideOrder + "/scaled.mp4";
 
-            ffmpegScaleVideo(projectId, slides[i].slideOrder, videoFile, fileToConcat);
+            ffmpegScaleVideo(projectId, slides[i].slideOrder, videoFile, fileToConcat, resolution);
 
         }
 
@@ -255,12 +257,12 @@ function startScalingVideos(projectId, slides) {
 }
 
 // To scale videos of different resolutions for robust concat
-function ffmpegScaleVideo(projectId, slideOrder, videoFile, fileToConcat) {
+function ffmpegScaleVideo(projectId, slideOrder, videoFile, fileToConcat, resolution) {
     console.log("Request received: Scale video");
 
     ffmpeg(videoFile)
         .output(fileToConcat)
-        .size("1280x720")
+        .size(resolution)
         .on('start', function (commandLine) {
             console.log('FFMPEG spawned for scaling video: ' + commandLine);
         })
