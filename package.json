@@ -13,6 +13,7 @@
     "fluent-ffmpeg": "^2.1.2",
     "mime-types": "^2.1.21",
     "mongoose": "^5.3.14",
+    "unzip": "^0.1.11",
     "videoshow": "^0.1.11"
   }
 }

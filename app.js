@@ -3,6 +3,7 @@ var express     = require('express'),
     db          = require('./models'),
     bodyParser  = require('body-parser'),
     fileSystem  = require('fs'),
+    unzip       = require('unzip'),
     mime        = require('mime-types'),
     ffmpeg      = require('fluent-ffmpeg'),
     videoshow   = require('videoshow'),
@@ -37,13 +38,29 @@ function init(req, res) {
      * 2 - Google Cloud authentication
      */
 
+    fileSystem.createReadStream("./zips/" + req.body.zipUrl)
+    .pipe(unzip.Extract({
+        path: projectDir
+    }))
+    .on('close', function(items){
+        createProjectEntry(req.body.name, req.body.zipUrl, req.body.resolution);
+    });
+    
+    res.json({
+        message: "Project create reqeust has been spawned!"
+    });
+
+}
+
+function createProjectEntry(projectName, projectZip, vidRes) {
+
     var projectId;
 
     // Create project entry in db
     db.Project.create({
-        name: req.body.name,
-        zipUrl: req.body.zipUrl,
-        resolution: req.body.resolution
+        name: projectName,
+        zipUrl: projectZip,
+        resolution: vidRes
     })
         .then(function (project) {
 
@@ -61,9 +78,6 @@ function init(req, res) {
                 }
             }
 
-            res.json({
-                message: "Project create reqeust has been spawned!"
-            });
         })
         .catch(function (err) {
             console.log(err);
