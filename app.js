@@ -12,6 +12,13 @@ var express     = require('express'),
 // Imports the Google Cloud client library
 const {Storage} = require('@google-cloud/storage');
 
+// Creates a GCP Storage client
+const storage = new Storage({
+    projectId: "impactful-study-190010",
+});
+
+const bucketName = "lvcms-development-testing";
+
 // Setup body parse to receive json format requests
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -34,12 +41,8 @@ app.get('/project/create', function (req, res) {
 // Starting point for API
 async function init(req, res) {
 
-    // Creates a GCP Storage client
-    const storage = new Storage({
-        projectId: "impactful-study-190010",
-    });
     
-    const bucketName = "lvcms-development-testing";
+
     const srcFilename = "zips/" + req.body.zipUrl;
     const destFilename = "./zips/" + req.body.zipUrl;
 
@@ -51,7 +54,7 @@ async function init(req, res) {
         destination: destFilename
     });
 
-    console.log(`gs://${bucketName}/${srcFilename} downloaded to ${destFilename}.`);
+    console.log(`GS://${bucketName}/${srcFilename} downloaded to ${destFilename}.`);
 
     // Extract the project archieve
     console.log("Extracting project archieve")
@@ -369,6 +372,8 @@ function checkForFilesToConcat(projectId) {
 function ffmpegConcatVideos(name, inputs) {
     console.log("Request recieved: Video concatination");
 
+    var output = "./videos/" + name + ".mp4"
+
     var ffm = ffmpeg(inputs[0].file);
 
     for (var i = 1; i < inputs.length; i++) {
@@ -384,8 +389,35 @@ function ffmpegConcatVideos(name, inputs) {
         })
         .on('end', function () {
             console.log('FFMPEG video concat finished!');
+            uploadFile(name + ".mp4");
         })
-        .mergeToFile('./videos/' + name + ".mp4", './cache');    // needs a temporary folder as second argument
+        .mergeToFile(output, './cache');    // needs a temporary folder as second argument
+
+}
+
+// Uploading the file back to bucket
+async function uploadFile(fileName) {
+
+    // Creates a GCP Storage client
+    const storage = new Storage({
+        projectId: "impactful-study-190010",
+    });
+
+    // Uploads a local file to the bucket
+    await storage.bucket(bucketName).upload("./videos/" + fileName, {
+        destination: "/videos/" + fileName,
+        // Support for HTTP requests made with `Accept-Encoding: gzip`
+        gzip: true,
+        metadata: {
+        // Enable long-lived HTTP caching headers
+        // Use only if the contents of the file will never change
+        // (If the contents will change, use cacheControl: 'no-cache')
+        cacheControl: 'public, max-age=31536000',
+        },
+    });
+    
+    console.log(`GS://${fileName} uploaded to ${bucketName}.`);
+
 
 }
 
