@@ -9,6 +9,9 @@ var express     = require('express'),
     videoshow   = require('videoshow'),
     projectDir  = "./projects/";
 
+// Imports the Google Cloud client library
+const {Storage} = require('@google-cloud/storage');
+
 // Setup body parse to receive json format requests
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -29,17 +32,30 @@ app.get('/project/create', function (req, res) {
 });
 
 // Starting point for API
-function init(req, res) {
+async function init(req, res) {
 
-    /**
-     * TODO
-     * 1 - Extract Project ZIP and store in 'projects' dir
-     * 2 - Google Cloud authentication
-     */
+    // Creates a GCP Storage client
+    const storage = new Storage({
+        projectId: "impactful-study-190010",
+    });
+    
+    const bucketName = "lvcms-development-testing";
+    const srcFilename = "zips/" + req.body.zipUrl;
+    const destFilename = "./zips/" + req.body.zipUrl;
+
+    // Downloads the file from bucket
+    await storage
+    .bucket(bucketName)
+    .file(srcFilename)
+    .download({
+        destination: destFilename
+    });
+
+    console.log(`gs://${bucketName}/${srcFilename} downloaded to ${destFilename}.`);
 
     // Extract the project archieve
     console.log("Extracting project archieve")
-    fileSystem.createReadStream("./zips/" + req.body.zipUrl)
+    fileSystem.createReadStream(destFilename)
     .pipe(unzip.Extract({
         path: projectDir
     }))
