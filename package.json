@@ -9,6 +9,7 @@
   "author": "Antariksh C. <antarikshc@gmail.com>",
   "license": "ISC",
   "dependencies": {
+    "@google-cloud/storage": "^2.3.1",
     "express": "^4.16.4",
     "fluent-ffmpeg": "^2.1.2",
     "mime-types": "^2.1.21",

@@ -29,7 +29,6 @@ app.get('/project/create', function (req, res) {
 });
 
 // Starting point for API
-// Creates database entry
 function init(req, res) {
 
     /**
@@ -38,6 +37,8 @@ function init(req, res) {
      * 2 - Google Cloud authentication
      */
 
+    // Extract the project archieve
+    console.log("Extracting project archieve")
     fileSystem.createReadStream("./zips/" + req.body.zipUrl)
     .pipe(unzip.Extract({
         path: projectDir
@@ -52,6 +53,7 @@ function init(req, res) {
 
 }
 
+// Creates database entry and starts scanning project files
 function createProjectEntry(projectName, projectZip, vidRes) {
 
     var projectId;
