@@ -3,9 +3,10 @@ var express     = require('express'),
     db          = require('./models'),
     bodyParser  = require('body-parser'),
     fileSystem  = require('fs'),
-    unzip       = require('unzip'),
+    unzip       = require('unzip-stream'),
     mime        = require('mime-types'),
     ffmpeg      = require('fluent-ffmpeg'),
+    imageResize = require('sharp'),
     videoshow   = require('videoshow'),
     projectDir  = "./projects/";
 
@@ -32,7 +33,7 @@ app.get('/', function (req, res) {
 });
 
 // Create Project route to start Video manipulation service
-app.get('/project/create', function (req, res) {
+app.post('/project/create', function (req, res) {
 
     init(req, res);
 
@@ -40,8 +41,6 @@ app.get('/project/create', function (req, res) {
 
 // Starting point for API
 async function init(req, res) {
-
-    
 
     const srcFilename = "zips/" + req.body.zipUrl;
     const destFilename = "./zips/" + req.body.zipUrl;
@@ -60,7 +59,7 @@ async function init(req, res) {
     console.log("Extracting project archieve")
     fileSystem.createReadStream(destFilename)
     .pipe(unzip.Extract({
-        path: projectDir
+        path: projectDir + req.body.name + "/"
     }))
     .on('close', function(items){
         createProjectEntry(req.body.name, req.body.zipUrl, req.body.resolution);
@@ -196,10 +195,11 @@ function startMergingImageAudio(projectId, name, slides, resolution) {
         if (slides[i].type === 1) {
 
             var imageFile = projectDir + name + "/" + slides[i].slideOrder + "/" + slides[i].imageFile;
+            var resizedImg = projectDir + name + "/" + slides[i].slideOrder + "/resized_" + slides[i].imageFile;
             var audioFile = projectDir + name + "/" + slides[i].slideOrder + "/" + slides[i].audioFile;
             var fileToConcat = projectDir + name + "/" + slides[i].slideOrder + "/merged.mp4";
 
-            ffmpegAudioProbe(imageFile, audioFile, fileToConcat, 
+            ffmpegAudioProbe(imageFile, resizedImg, audioFile, fileToConcat, 
                 projectId, slides[i].slideOrder, resolution);
 
         }
@@ -208,7 +208,7 @@ function startMergingImageAudio(projectId, name, slides, resolution) {
 }
 
 // Probe the Audio file to get the File metadata, we need duration for now
-function ffmpegAudioProbe(imageFile, audioFile, fileToConcat, projectId, slideOrder, resolution) {
+function ffmpegAudioProbe(imageFile, resizedImg, audioFile, fileToConcat, projectId, slideOrder, resolution) {
     console.log("Request recieved: Audio probe");
 
     var images, duration, videoOptions;
@@ -232,13 +232,29 @@ function ffmpegAudioProbe(imageFile, audioFile, fileToConcat, projectId, slideOr
                 pixelFormat: 'yuv420p'
             }
 
-            // Set of images with the duration obtained from ffprobe
-            images = [{
-                path: imageFile,
-                loop: duration
-            }]
+            // Resize Image and call Video Merge
+            imageResize(imageFile)
+            .resize(1280, 720)
+            .toFile(resizedImg, (err, data) => {
+                if (err) {
+                    console.log("Cannot resize Image");
+                } else {
 
-            ffmpegVideoMerge(images, audioFile, videoOptions, fileToConcat, projectId, slideOrder);
+
+                    // Set of images with the duration obtained from ffprobe
+                    images = [{
+                        path: resizedImg,
+                        loop: duration
+                    }]
+
+                    ffmpegVideoMerge(images, audioFile, videoOptions, fileToConcat, projectId, slideOrder);
+
+                }
+            });
+
+
+            
+
 
         });
 
@@ -336,6 +352,7 @@ function ffmpegScaleVideo(projectId, slideOrder, videoFile, fileToConcat, resolu
 // Checks the project entry whether all slides have Video file
 // before processding for final video concatenation 
 function checkForFilesToConcat(projectId) {
+    console.log("Checking for Video Concatenation");
 
     db.Project.findOne({ _id: projectId })
         .then((result) => {
@@ -345,21 +362,22 @@ function checkForFilesToConcat(projectId) {
                 files = [];
 
             for (var i = 0; i < slides.length; i++) {
+                console.log("Inside FOR loop " + i);
 
                 files.push({
                     order: slides[i].slideOrder,
                     file: slides[i].fileToConcat
                 });
 
-                if (slides[i].fileToConcat === null || slides[i].fileToConcat === "") {
-                    isReady = false;
-                }
+                isReady = 'fileToConcat' in slides[i];
+                
 
             }
 
-            if (isReady) {
+            if (isReady === true) {
                 ffmpegConcatVideos(result.name, files);
             }
+            
 
         })
         .catch((err) => {
@@ -417,7 +435,6 @@ async function uploadFile(fileName) {
     });
     
     console.log(`GS://${fileName} uploaded to ${bucketName}.`);
-
 
 }
 
