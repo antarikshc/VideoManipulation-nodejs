@@ -232,14 +232,16 @@ function ffmpegAudioProbe(imageFile, resizedImg, audioFile, fileToConcat, projec
                 pixelFormat: 'yuv420p'
             }
 
+            var width = parseInt(resolution.split("x")[0]);
+            var height = parseInt(resolution.split("x")[1]);
+
             // Resize Image and call Video Merge
             imageResize(imageFile)
-            .resize(1280, 720)
+            .resize(width, height)
             .toFile(resizedImg, (err, data) => {
                 if (err) {
                     console.log("Cannot resize Image");
                 } else {
-
 
                     // Set of images with the duration obtained from ffprobe
                     images = [{
@@ -251,10 +253,6 @@ function ffmpegAudioProbe(imageFile, resizedImg, audioFile, fileToConcat, projec
 
                 }
             });
-
-
-            
-
 
         });
 
