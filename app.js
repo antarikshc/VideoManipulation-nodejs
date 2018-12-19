@@ -42,8 +42,14 @@ app.post('/project/create', function (req, res) {
 // Starting point for API
 async function init(req, res) {
 
+    res.json({
+        message: "Project create reqeust has been spawned!"
+    });
+    
     const srcFilename = "zips/" + req.body.zipUrl;
     const destFilename = "./zips/" + req.body.zipUrl;
+
+    console.log(`Downloading ${srcFilename} from ${bucketName}`);
 
     // Downloads the file from bucket
     await storage
@@ -63,10 +69,6 @@ async function init(req, res) {
     }))
     .on('close', function(items){
         createProjectEntry(req.body.name, req.body.zipUrl, req.body.resolution);
-    });
-    
-    res.json({
-        message: "Project create reqeust has been spawned!"
     });
 
 }
@@ -421,6 +423,8 @@ async function uploadFile(fileName) {
         projectId: "impactful-study-190010",
     });
 
+    console.log(`Uploading ${fileName} in ${bucketName}`)
+
     // Uploads a local file to the bucket
     await storage.bucket(bucketName).upload("./videos/" + fileName, {
         destination: "/videos/" + fileName,
@@ -435,6 +439,7 @@ async function uploadFile(fileName) {
     });
     
     console.log(`GS://${fileName} uploaded to ${bucketName}.`);
+    console.log("Exiting Task.");
 
 }
 
