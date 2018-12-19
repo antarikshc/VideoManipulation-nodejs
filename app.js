@@ -279,7 +279,8 @@ function ffmpegVideoMerge(images, audioFile, videoOptions, fileToConcat, project
             db.Project.findOneAndUpdate({ _id: projectId, 'slides.slideOrder': slideOrder },
                 {
                     '$set': {
-                        "slides.$.fileToConcat": fileToConcat
+                        "slides.$.fileToConcat": fileToConcat,
+                        "slides.$.status": 1
                     }
                 }, { new: true })
                 .then((result) => {
@@ -332,7 +333,8 @@ function ffmpegScaleVideo(projectId, slideOrder, videoFile, fileToConcat, resolu
             db.Project.findOneAndUpdate({ _id: projectId, 'slides.slideOrder': slideOrder },
                 {
                     '$set': {
-                        "slides.$.fileToConcat": fileToConcat
+                        "slides.$.fileToConcat": fileToConcat,
+                        "slides.$.status": 1
                     }
                 }, { new: true })
                 .then((result) => {
@@ -360,19 +362,19 @@ function checkForFilesToConcat(projectId) {
                 files = [];
 
             for (var i = 0; i < slides.length; i++) {
-                console.log("Inside FOR loop " + i);
 
                 files.push({
                     order: slides[i].slideOrder,
                     file: slides[i].fileToConcat
                 });
 
-                isReady = 'fileToConcat' in slides[i];
-                
+                if (slides[i].status === 0) {
+                    isReady = false;
+                }
 
             }
 
-            if (isReady === true) {
+            if (isReady) {
                 ffmpegConcatVideos(result.name, files);
             }
             
