@@ -20,6 +20,9 @@ const storage = new Storage({
 
 const bucketName = "lvcms-development-testing";
 
+// Create Array for queueing
+var queue = [];
+
 // Setup body parse to receive json format requests
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -35,17 +38,29 @@ app.get('/', function (req, res) {
 // Create Project route to start Video manipulation service
 app.post('/project/create', function (req, res) {
 
-    init(req, res);
-
-});
-
-// Starting point for API
-async function init(req, res) {
-
+    queueTask(req);
     res.json({
         message: "Project create reqeust has been spawned!"
     });
-    
+
+});
+
+function queueTask(req) {
+
+    if (queue.length == 0) {
+        console.log("Task Initiated");
+        init(req);
+        queue.push(req);
+    } else {
+        queue.push(req);
+        console.log("Task has been queued");
+    }
+
+}
+
+// Starting point for API
+async function init(req) {
+
     const srcFilename = "zips/" + req.body.zipUrl;
     const destFilename = "./zips/" + req.body.zipUrl;
 
@@ -440,6 +455,11 @@ async function uploadFile(fileName) {
     
     console.log(`GS://${fileName} uploaded to ${bucketName}.`);
     console.log("Exiting Task.");
+
+    if (queue.length != 0) {
+        queue.shift();
+        init(queue[0]);
+    }
 
 }
 
