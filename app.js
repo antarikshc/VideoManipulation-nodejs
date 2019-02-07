@@ -8,7 +8,7 @@ var express     = require('express'),
     ffmpeg      = require('fluent-ffmpeg'),
     imageResize = require('sharp'),
     videoshow   = require('videoshow'),
-    projectDir  = "./projects/";
+    projectDir  = "./media/projects/";
 
 // Imports the Google Cloud client library
 const {Storage} = require('@google-cloud/storage');
@@ -62,7 +62,7 @@ function queueTask(req) {
 async function init(req) {
 
     const srcFilename = "zips/" + req.body.zipUrl;
-    const destFilename = "./zips/" + req.body.zipUrl;
+    const destFilename = "./media/zips/" + req.body.zipUrl;
 
     console.log(`Downloading ${srcFilename} from ${bucketName}`);
 
@@ -413,7 +413,7 @@ function checkForFilesToConcat(projectId) {
 function ffmpegConcatVideos(name, inputs) {
     console.log("Request recieved: Video concatination");
 
-    var output = "./videos/" + name + ".mp4"
+    var output = "./media/videos/" + name + ".mp4"
 
     var ffm = ffmpeg(inputs[0].file);
 
@@ -447,7 +447,7 @@ async function uploadFile(fileName) {
     console.log(`Uploading ${fileName} in ${bucketName}`)
 
     // Uploads a local file to the bucket
-    await storage.bucket(bucketName).upload("./videos/" + fileName, {
+    await storage.bucket(bucketName).upload("./media/videos/" + fileName, {
         destination: "/videos/" + fileName,
         // Support for HTTP requests made with `Accept-Encoding: gzip`
         gzip: true,
