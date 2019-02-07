@@ -355,7 +355,13 @@ function ffmpegScaleVideo(projectId, slideOrder, videoFile, fileToConcat, resolu
                     }
                 }, { new: true })
                 .then((result) => {
-                    checkForFilesToConcat(projectId);
+                    if (result) {
+                        console.log("FFMPEG Scale: " + result);
+                        checkForFilesToConcat(projectId);
+                    } else {
+                        console.error("FFMPEG Scale: " + result);
+                    }
+                    
                 })
                 .catch((err) => {
                     console.log(err);
