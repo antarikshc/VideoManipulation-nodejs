@@ -11,7 +11,7 @@ var express     = require('express'),
     projectDir  = "./media/projects/";
 
 // Imports the Google Cloud client library
-const {Storage} = require('@google-cloud/storage');
+const { Storage } = require('@google-cloud/storage');
 
 // Creates a GCP Storage client
 const storage = new Storage({
@@ -47,13 +47,22 @@ app.post('/project/create', function (req, res) {
 
 function queueTask(req) {
 
-    if (queue.length == 0) {
-        console.log("Task Initiated");
-        init(req);
-        queue.push(req);
-    } else {
-        queue.push(req);
-        console.log("Task has been queued");
+    try {
+
+        if (queue.length === 0) {
+            console.log("Task Initiated");
+            init(req);
+            queue.push(req);
+        } else {
+            queue.push(req);
+            console.log("Task has been queued");
+        }
+
+    } catch (e) {
+        if (queue.length > 0) {
+            queue.shift();
+            init(queue[0]);
+        }
     }
 
 }
@@ -68,23 +77,23 @@ async function init(req) {
 
     // Downloads the file from bucket
     await storage
-    .bucket(bucketName)
-    .file(srcFilename)
-    .download({
-        destination: destFilename
-    });
+        .bucket(bucketName)
+        .file(srcFilename)
+        .download({
+            destination: destFilename
+        });
 
     console.log(`GS://${bucketName}/${srcFilename} downloaded to ${destFilename}.`);
 
     // Extract the project archieve
     console.log("Extracting project archieve")
     fileSystem.createReadStream(destFilename)
-    .pipe(unzip.Extract({
-        path: projectDir + req.body.name + "/"
-    }))
-    .on('close', function(items){
-        createProjectEntry(req.body.name, req.body.zipUrl, req.body.resolution);
-    });
+        .pipe(unzip.Extract({
+            path: projectDir + req.body.name + "/"
+        }))
+        .on('close', function (items) {
+            createProjectEntry(req.body.name, req.body.zipUrl, req.body.resolution);
+        });
 
 }
 
@@ -216,7 +225,7 @@ function startMergingImageAudio(projectId, name, slides, resolution) {
             var audioFile = projectDir + name + "/" + slides[i].slideOrder + "/" + slides[i].audioFile;
             var fileToConcat = projectDir + name + "/" + slides[i].slideOrder + "/merged.mp4";
 
-            ffmpegAudioProbe(imageFile, resizedImg, audioFile, fileToConcat, 
+            ffmpegAudioProbe(imageFile, resizedImg, audioFile, fileToConcat,
                 projectId, slides[i].slideOrder, resolution);
 
         }
@@ -254,22 +263,23 @@ function ffmpegAudioProbe(imageFile, resizedImg, audioFile, fileToConcat, projec
 
             // Resize Image and call Video Merge
             imageResize(imageFile)
-            .resize(width, height)
-            .toFile(resizedImg, (err, data) => {
-                if (err) {
-                    console.log("Cannot resize Image");
-                } else {
+                .resize(width, height)
+                .toFile(resizedImg, (err, data) => {
+                    if (err) {
+                        console.log("Cannot resize Image");
+                        queueNextTask();
+                    } else {
 
-                    // Set of images with the duration obtained from ffprobe
-                    images = [{
-                        path: resizedImg,
-                        loop: duration
-                    }]
+                        // Set of images with the duration obtained from ffprobe
+                        images = [{
+                            path: resizedImg,
+                            loop: duration
+                        }]
 
-                    ffmpegVideoMerge(images, audioFile, videoOptions, fileToConcat, projectId, slideOrder);
+                        ffmpegVideoMerge(images, audioFile, videoOptions, fileToConcat, projectId, slideOrder);
 
-                }
-            });
+                    }
+                });
 
         });
 
@@ -288,6 +298,7 @@ function ffmpegVideoMerge(images, audioFile, videoOptions, fileToConcat, project
         .on('error', function (err, stdout, stderr) {
             console.error('FFMPEG Image-Audio merge Error:', err)
             console.error('FFMPEG Image-Audio merge stderr:', stderr)
+            queueNextTask();
         })
         .on('end', function (output) {
             console.error('FFMPEG Image-Audio merge output:', output)
@@ -342,6 +353,7 @@ function ffmpegScaleVideo(projectId, slideOrder, videoFile, fileToConcat, resolu
         })
         .on('error', function (err) {
             console.log('FFMPEG scaling video error: ' + err.message);
+            queueNextTask();
         })
         .on('end', function () {
             console.log('FFMPEG scaling video finished!');
@@ -361,7 +373,7 @@ function ffmpegScaleVideo(projectId, slideOrder, videoFile, fileToConcat, resolu
                     } else {
                         console.error("FFMPEG Scale: " + result);
                     }
-                    
+
                 })
                 .catch((err) => {
                     console.log(err);
@@ -400,7 +412,7 @@ function checkForFilesToConcat(projectId) {
             if (isReady) {
                 ffmpegConcatVideos(result.name, files);
             }
-            
+
 
         })
         .catch((err) => {
@@ -427,6 +439,7 @@ function ffmpegConcatVideos(name, inputs) {
         })
         .on('error', function (err) {
             console.log('FFMPEG video concat error: ' + err.message);
+            queueNextTask();
         })
         .on('end', function () {
             console.log('FFMPEG video concat finished!');
@@ -452,21 +465,24 @@ async function uploadFile(fileName) {
         // Support for HTTP requests made with `Accept-Encoding: gzip`
         gzip: true,
         metadata: {
-        // Enable long-lived HTTP caching headers
-        // Use only if the contents of the file will never change
-        // (If the contents will change, use cacheControl: 'no-cache')
-        cacheControl: 'public, max-age=31536000',
+            // Enable long-lived HTTP caching headers
+            // Use only if the contents of the file will never change
+            // (If the contents will change, use cacheControl: 'no-cache')
+            cacheControl: 'public, max-age=31536000',
         },
     });
-    
+
     console.log(`GS://${fileName} uploaded to ${bucketName}.`);
     console.log("Exiting Task.");
 
-    if (queue.length != 0) {
+    queueNextTask();
+}
+
+function queueNextTask() {
+    if (queue.length > 0) {
         queue.shift();
         init(queue[0]);
     }
-
 }
 
 // Listen to the default PORT for incoming request
